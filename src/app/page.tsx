@@ -6,7 +6,7 @@ import { socket } from '../lib/socket';
 
 // ユニークなユーザーIDを生成する関数
 const generateUserId = () => {
-  return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `user_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 };
 
 export default function Home() {
@@ -40,37 +40,24 @@ export default function Home() {
 
     // 接続時にユーザーIDを送信
     const handleConnect = () => {
-      socket.emit('setUserId', { userId: storedUserId, userName: storedUserName });
+      socket.emit('setUserInfo', { userId: storedUserId, userName: storedUserName });
     };
 
-    // イベントリスナーを先に登録
-    interface RoomEventData {
-      password: string;
-    }
-
-    const handleRoomCreated = (data: RoomEventData) => {
-      console.log('Room created, navigating to:', `/room/${encodeURIComponent(data.password)}`);
+    // ルーム作成と参加のイベントハンドラ
+    const handleRoomCreated = ( data: { password: string} ) => {
+      console.log('ルームを作成しました。遷移先は...', `/room/${encodeURIComponent(data.password)}`);
       // URLエンコーディングを使用
       router.push(`/room/${encodeURIComponent(data.password)}`);
     };
 
-    interface RoomJoinedEventData {
-      password: string;
-    }
-
-    const handleRoomJoined = (data: RoomJoinedEventData) => {
-      console.log('Room joined, navigating to:', `/room/${encodeURIComponent(data.password)}`);
+    const handleRoomJoined = ( data: { password: string} ) => {
+      console.log('ルームに参加しました。遷移先は...', `/room/${encodeURIComponent(data.password)}`);
       // URLエンコーディングを使用
       router.push(`/room/${encodeURIComponent(data.password)}`);
     };
 
-    interface SocketErrorData {
-      message: string;
-      [key: string]: any;
-    }
-
-    const handleError = (data: SocketErrorData) => {
-      console.error('Socket error:', data);
+    const handleError = ( data: { message: string, [key: string]: any } ) => {
+      console.error('Socketエラー：', data);
       alert(data.message);
     };
 
@@ -79,13 +66,14 @@ export default function Home() {
     socket.on('roomJoined', handleRoomJoined);
     socket.on('error', handleError);
 
-    // 接続処理
+    // ユーザーIdとユーザーネームの登録
     if (socket.connected) {
       handleConnect();
     } else {
       socket.on('connect', handleConnect);
     }
 
+    // コンポーネントのアンマウント時に全てのイベントリスナーをクリーンアップ
     return () => {
       socket.off('connect', handleConnect);
       socket.off('roomCreated', handleRoomCreated);
@@ -96,18 +84,14 @@ export default function Home() {
 
   const handleCreateRoom = () => {
     if (password.trim() && userName.trim()) {
-      console.log('Creating room with:', { password, userId, userName });
-      // ユーザー名が変更された場合はsessionStorageを更新
-      sessionStorage.setItem('userName', userName);
+      console.log('以下の内容を使って、ルームを作成します：', { password, userId, userName });
       socket.emit('createRoom', { password, user: { id: userId, name: userName } });
     }
   };
 
   const handleJoinRoom = () => {
     if (password.trim() && userName.trim()) {
-      console.log('Joining room with:', { password, userId, userName });
-      // ユーザー名が変更された場合はsessionStorageを更新
-      sessionStorage.setItem('userName', userName);
+      console.log('以下の内容を使って、ルームに参加します：', { password, userId, userName });
       socket.emit('joinRoom', { password, user: { id: userId, name: userName } });
     }
   };
@@ -122,6 +106,7 @@ export default function Home() {
           value={userName}
           onChange={(e) => setUserName(e.target.value)}
           style={{ marginBottom: '10px', display: 'block' }}
+          readOnly
         />
         <input
           type="text"
@@ -129,6 +114,7 @@ export default function Home() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           style={{ marginBottom: '10px', display: 'block' }}
+          className="border px-2 py-1"
         />
         <button onClick={handleCreateRoom} style={{ marginRight: '10px'}} className='border-1'>
           ルームを作成
