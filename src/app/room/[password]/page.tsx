@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { socket } from '../../../lib/socket';
 
 interface Member {
@@ -17,22 +17,47 @@ interface RoomInfo {
 
 export default function RoomPage() {
   const params = useParams();
-  const password = params.password as string;
+  const router = useRouter();
+  // URLデコーディングを使用してパスワードを取得
+  const encodedPassword = params.password as string;
+  const password = decodeURIComponent(encodedPassword);
   const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
   const [isHost, setIsHost] = useState(false);
 
   useEffect(() => {
+    // sessionStorageからユーザー情報を取得
+    const userId = sessionStorage.getItem('userId');
+    const userName = sessionStorage.getItem('userName');
+    
+    console.log('Room page - Password:', password, 'Encoded:', encodedPassword);
+    
+    if (!userId || !userName) {
+      // ユーザー情報がない場合はホームページにリダイレクト
+      window.location.href = '/';
+      return;
+    }
+
+    // 接続が確立されていることを確認
     if (!socket.connected) {
       socket.connect();
     }
     
-    // ルーム情報の取得のみを行い、joinRoomは行わない
-    // 既にルーム作成時やルーム参加時にjoinRoomが実行されているため
-    socket.emit('getRoomInfo', { password });
+    // socket.idが確定してからルーム情報を取得
+    const handleConnect = () => {
+      socket.emit('setUserId', { userId, userName });
+      // デコードされたパスワードを使用
+      socket.emit('getRoomInfo', { password, userId });
+    };
+
+    if (socket.connected) {
+      handleConnect();
+    } else {
+      socket.on('connect', handleConnect);
+    }
 
     socket.on('updateRoom', (data: RoomInfo) => {
       setRoomInfo(data);
-      setIsHost(socket.id === data.host);
+      setIsHost(userId === data.host);
     });
     
     socket.on('gameStarted', () => {
@@ -44,15 +69,38 @@ export default function RoomPage() {
         alert(data.message);
     });
 
+    // ルーム退出完了時の処理
+    socket.on('roomLeft', () => {
+      router.push('/');
+    });
+
+    // ルームが削除された時の処理（ホストが退出した場合など）
+    socket.on('roomDeleted', () => {
+      alert('ルームが削除されました。');
+      router.push('/');
+    });
+
     return () => {
+      socket.off('connect', handleConnect);
       socket.off('updateRoom');
       socket.off('gameStarted');
       socket.off('error');
+      socket.off('roomLeft');
+      socket.off('roomDeleted');
     };
-  }, [password]);
+  }, [password, router, encodedPassword]);
 
   const handleStartGame = () => {
+      // デコードされたパスワードを使用
       socket.emit('startGame', { password });
+  };
+
+  const handleLeaveRoom = () => {
+    const userId = sessionStorage.getItem('userId');
+    if (userId) {
+      // デコードされたパスワードを使用
+      socket.emit('leaveRoom', { password, userId });
+    }
   };
   
   if (!roomInfo) {
@@ -71,14 +119,30 @@ export default function RoomPage() {
         ))}
       </ul>
       
-      {isHost && (
+      <div style={{ marginTop: '20px' }}>
+        {isHost && (
+          <button 
+            onClick={handleStartGame}
+            disabled={roomInfo.members.length < 2 || roomInfo.status === 'playing'}
+            style={{ marginRight: '10px' }}
+          >
+            {roomInfo.members.length < 2 ? '2人以上で開始できます' : 'ゲームスタート！'}
+          </button>
+        )}
+        
         <button 
-          onClick={handleStartGame}
-          disabled={roomInfo.members.length < 2 || roomInfo.status === 'playing'}
+          onClick={handleLeaveRoom}
+          style={{ 
+            backgroundColor: '#dc3545', 
+            color: 'white', 
+            border: 'none', 
+            padding: '10px 20px', 
+            cursor: 'pointer' 
+          }}
         >
-          {roomInfo.members.length < 2 ? '2人以上で開始できます' : 'ゲームスタート！'}
+          ルームを退出
         </button>
-      )}
+      </div>
     </div>
   );
 }
