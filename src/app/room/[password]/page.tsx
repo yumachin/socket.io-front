@@ -61,8 +61,9 @@ export default function RoomPage() {
     });
     
     socket.on('gameStarted', () => {
-        alert('ゲームスタート！');
-        // ここでゲーム画面に遷移するなどの処理を行う
+        console.log('Game started, navigating to game page');
+        // ゲームページに遷移
+        router.push(`/game/${encodeURIComponent(password)}`);
     });
     
     socket.on('error', (data) => {

@@ -125,15 +125,15 @@ export default function Home() {
         />
         <input
           type="text"
-          placeholder="合言葉 (ひらがな、記号も使用可能)"
+          placeholder="合言葉"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           style={{ marginBottom: '10px', display: 'block' }}
         />
-        <button onClick={handleCreateRoom} style={{ marginRight: '10px' }}>
+        <button onClick={handleCreateRoom} style={{ marginRight: '10px'}} className='border-1'>
           ルームを作成
         </button>
-        <button onClick={handleJoinRoom}>
+        <button onClick={handleJoinRoom} className='border-1'>
           ルームに参加
         </button>
       </div>
