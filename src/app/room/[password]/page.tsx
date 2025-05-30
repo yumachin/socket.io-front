@@ -26,10 +26,9 @@ export default function RoomPage() {
       socket.connect();
     }
     
-    // ページロード時に、自身がすでにルームにいることをサーバーに伝える
-    // (ユーザー名はlocalStorageなどから復元するのが望ましい)
-    const userName = `User-${Math.random().toString(36).substr(2, 5)}`;
-    socket.emit('joinRoom', { password, user: { name: userName } });
+    // ルーム情報の取得のみを行い、joinRoomは行わない
+    // 既にルーム作成時やルーム参加時にjoinRoomが実行されているため
+    socket.emit('getRoomInfo', { password });
 
     socket.on('updateRoom', (data: RoomInfo) => {
       setRoomInfo(data);
@@ -49,8 +48,6 @@ export default function RoomPage() {
       socket.off('updateRoom');
       socket.off('gameStarted');
       socket.off('error');
-      // ルームから退出するイベントをemitするのが親切
-      // socket.emit('leaveRoom', { password });
     };
   }, [password]);
 
